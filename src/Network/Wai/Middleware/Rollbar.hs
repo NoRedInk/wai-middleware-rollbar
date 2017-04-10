@@ -19,9 +19,12 @@
 
 module Network.Wai.Middleware.Rollbar (requests) where
 
+import Conduit (stderrC)
+
 import Control.Concurrent (forkIO)
 import Control.Exception  (Handler(Handler), catches, displayException)
 import Control.Monad      (when)
+import Control.Monad.IO.Class (liftIO)
 
 import Data.Aeson   (ToJSON, defaultOptions, genericToEncoding, toEncoding)
 import Data.Functor (void)
@@ -37,7 +40,7 @@ import Network.HTTP.Simple
     ( JSONException
     , Request
     , defaultRequest
-    , httpNoBody
+    , httpSink
     , setRequestBodyJSON
     , setRequestHost
     , setRequestIgnoreStatus
@@ -89,7 +92,7 @@ send accessToken environment req res = do
     let itemData = (RI.error environment messageBody payload)
             { RI.request, RI.server, RI.timestamp, RI.uuid }
     let rReq = rollbarRequest RI.Item{..}
-    void $ httpNoBody rReq
+    void $ httpSink rReq (\r -> liftIO (print r) >> stderrC)
     where
     Status{..} = NW.responseStatus res
     headers = RI.Headers $ NW.requestHeaders req
